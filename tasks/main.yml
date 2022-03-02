@@ -1,0 +1,121 @@
+---
+  - debug: msg= " Create User {{ users }}"
+  - debug: msg= " Remove User {{ users_deleted }}"
+  
+  - name: Create users
+    user:
+      name: "{{ item[1].user }}"
+      comment: "{{ item[1].fullname }}"
+      shell: "{{ users_default_shell }}"
+      createhome: "{{ users_create_homedirs }}"
+      password: "{{ item[1].user_passwd | password_hash('sha512') }}"
+      state: present
+      force: yes
+      update_password: always
+    with_nested:
+      - "{{ users }}"
+      - "{{ users_info }}"
+    when: item[0] == item[1].user
+
+  - name: Set expire user
+    shell: chage -M "90" "{{ item[0] }}"
+    with_nested:
+      - "{{ users }}"
+      - "{{ users_info }}"
+
+  - name: Allow 'wheel' group to have passwordless sudo Redhat OS
+    lineinfile:
+      dest: /etc/sudoers
+      state: present
+      regexp: '^%whell'
+      line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+      validate: 'visudo -cf %s'
+    when: ansible_facts['os_family'] == "RedHat"
+ 
+  - name: Allow 'sudo' group to have passwordless sudo Deian OS
+    lineinfile:
+      dest: /etc/sudoers
+      state: present
+      regexp: '^%sudo'
+      line: '%sudo ALL=(ALL) NOPASSWD: ALL'
+      validate: 'visudo -cf %s'
+    when: ansible_facts['os_family'] == "Debian"
+
+  - name: Add user to group sudo RedHat OS
+    user:
+      name: "{{ item[1].user }}"
+      group: wheel
+      append: yes
+    with_nested:
+      - "{{ users }}"
+      - "{{ users_info }}"
+    when:
+      - item[0] == item[1].user and item[1].sudo == True 
+      - ansible_facts['os_family'] == "RedHat"
+
+  - name: Add user to group sudo Debian OS
+    user:
+      name: "{{ item[1].user }}"
+      group: sudo
+      append: yes
+    with_nested:
+      - "{{ users }}"
+      - "{{ users_info }}"
+    when:
+      - item[0] == item[1].user and item[1].sudo == True
+      - ansible_facts['os_family'] == "Debian"
+
+
+  - name: Add SSH keys user
+    authorized_key: 
+      user: "{{ item[0] }}" 
+      key: "{{ item[1].authorized_keys }}" 
+      state: present 
+      exclusive: True
+    with_nested:
+      - "{{ users }}"
+      - "{{ users_info }}"
+    when: item[0] == item[1].user
+
+
+  - name: Remove non sudo user
+    file:
+      path: /etc/sudoers.d/{{ item[1].user }}
+      state: absent
+    with_nested:
+      - "{{ users }}"
+      - "{{ users_info }}"
+    when:
+      - item[0] == item[1].user and item[1].sudo == False
+  
+  - name: Create user's sudoers file
+    lineinfile:
+      path: /etc/sudoers.d/{{ item[1].user }}
+      state: present
+      regexp: '^%{{ item[1].user }}'
+      line: '{{ item[1].user }} ALL=(ALL) NOPASSWD:ALL'
+      create: yes
+      owner: root
+      group: root
+      mode: 0440
+      validate: /usr/sbin/visudo -cf %s
+    with_nested:
+      - "{{ users }}"
+      - "{{ users_info }}"
+    when: 
+      - item[0] == item[1].user and item[1].sudo == True
+  
+  - name: Deleted user removal
+    user: 
+      name: "{{ item }}" 
+      state: absent 
+      force: yes
+    with_items: "{{ users_deleted }}"
+  
+  - name: Allow TCP wrapper access 
+    template: 
+      src: hosts.allow.j2
+      dest: /etc/hosts.allow
+      backup: yes
+    
+    

@@ -1,0 +1,29 @@
+---
+# defaults file for roles/create_users
+users_create_homedirs: yes
+users_default_shell: /bin/bash
+
+users_deleted: []
+users:
+  - cmc.tvsinh
+  - cmc.nbtien
+
+users_info:
+
+  - user: cmc.tvsinh
+    fullname: "Tran Van Sinh"
+    authorized_keys: ssh-rsa AAAAB3N== cmc.tvsinh@partner.samsung.com
+    user_passwd: "123456"
+    sudo: True
+
+  - user: cmc.nbtien
+    fullname: "Nguyen Ba Tien"
+    authorized_keys: ssh-rsa AAAAB3NzaC1yc2EAAAABEQAAAQEAtHFi5CshOSfBfG02wS6HtVPM0U0== nbtien@partner.samsung.com
+    user_passwd: "123456"
+    sudo: True
+
+  - user: cmc.cvhai
+    fullname: "Cu Van Hai"
+    authorized_keys:
+    user_passwd: "123456"
+    sudo: False
